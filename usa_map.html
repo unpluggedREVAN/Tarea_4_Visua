@@ -15,9 +15,9 @@
 
       async function prepareCoord() {
         try {
-          const response = await fetch('https://tecdigital.tec.ac.cr/dotlrn/file-storage/view/dotlrn_fs_1347225_root_folder/tarea4-visua/states_usa.bna.html', {
+          const response = await fetch('https://raw.githubusercontent.com/unpluggedREVAN/Tarea_4_Visua/main/states_usa.bna.html', {
             headers: {
-              'Content-Type': 'text/csv',
+              'Content-Type': 'text/plain',
             },
           });
           if (response.ok) {
