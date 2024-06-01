@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Mapa de Estados de USA</title>
+  </head>
+  <body>
+    <svg class="demo" id="demo" width="2000" height="2000"></svg>
+    <script type="module">
+      import * as d3 from "https://cdn.jsdelivr.net/npm/d3@7/+esm";
+
+      var xScale = d3.scaleLinear().domain([-66.419422, -125.786406]).range([350 * 4, 20]);
+      var yScale = d3.scaleLinear().domain([23.982057, 50.508481]).range([200 * 4, 50]);
+
+      async function prepareCoord() {
+        try {
+          const response = await fetch('https://tecdigital.tec.ac.cr/dotlrn/file-storage/view/dotlrn_fs_1347225_root_folder/tarea4-visua/states_usa.bna.html', {
+            headers: {
+              'Content-Type': 'text/csv',
+            },
+          });
+          if (response.ok) {
+            const csvContent = await response.text();
+            var arrayCoord = csvContent.split('\n');
+            var newCoord = [];
+            var posc = 0;
+            var areaAll = [];
+            var listCoord = [];
+            arrayCoord.forEach(elem => {
+              elem = elem.split(',');
+              if (elem.length == 3) {
+                newCoord = newCoord.concat({ id: elem[0], idUser: elem[1], numState: elem[2], coord: [] });
+                if (listCoord.length != 0) {
+                  areaAll = areaAll.concat([listCoord]); //[{x:,y:},...,{x:,y:}]
+                }
+                posc++;
+                listCoord = [];
+              } else {
+                newCoord[posc - 1].coord = { x: elem[0], y: elem[1] };
+                listCoord = listCoord.concat({ x: elem[0], y: elem[1] });
+              }
+            });
+          } else {
+            console.error('Error al descargar el archivo:', response.status);
+          }
+          return [newCoord, areaAll];
+        } catch (error) {
+          console.error('Error en la solicitud:', error);
+        }
+      }
+
+      let prepareCoordRes = await prepareCoord();
+      let coord = prepareCoordRes[0];
+      let areaAll = prepareCoordRes[1];
+      console.log(areaAll);
+
+      var area = d3.area()
+        .x(d => xScale(d.x))
+        .y0(d => yScale(d.y))
+        .y1(d => yScale(d.y));
+
+      const colorScale = d3.scaleLinear()
+        .domain([0, 1])
+        .range(['#FFFF00', '#00AABB']);
+
+      let randomColor;
+      areaAll.forEach(element => {
+        randomColor = colorScale(Math.random());
+        d3.select("#demo")
+          .append("path")
+          .attr("d", area(element))
+          .attr("fill", "red")
+          .attr("stroke", randomColor);
+      });
+    </script>
+  </body>
+</html>
