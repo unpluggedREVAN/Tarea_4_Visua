@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Treemap Squarify with D3.js</title>
+    <title>Multiple Treemaps with D3.js</title>
     <script src="https://d3js.org/d3.v7.min.js"></script>
     <style>
         .node {
@@ -14,9 +14,20 @@
             position: absolute;
             text-align: center;
         }
+        .treemap-container {
+            margin: 20px;
+            position: relative;
+            width: 960px;
+            height: 570px;
+            border: 1px solid black;
+        }
     </style>
 </head>
 <body>
+    <div id="treemap1" class="treemap-container"></div>
+    <div id="treemap2" class="treemap-container"></div>
+    <div id="treemap3" class="treemap-container"></div>
+
     <script>
         const width = 960;
         const height = 570;
@@ -29,7 +40,7 @@
             .paddingInner(1)
             .round(true);
 
-        function processCSVData(csvData) {
+        function processFlareData(csvData) {
             const root = {
                 name: "root",
                 children: []
@@ -68,21 +79,88 @@
                 .sort((a, b) => b.height - a.height || b.value - a.value);
         }
 
-        async function loadAndProcessData(url) {
+        function processVueData(csvData) {
+            const root = {
+                name: "root",
+                children: []
+            };
+
+            const map = new Map();
+
+            csvData.forEach(row => {
+                const id = row.pathname;
+                const value = +row.size;
+                const parts = id.split(/[/.]/); // split by dot or slash
+
+                let current = root;
+
+                parts.forEach((part, index) => {
+                    if (!map.has(part)) {
+                        const newNode = {
+                            name: part,
+                            children: []
+                        };
+                        current.children.push(newNode);
+                        map.set(part, newNode);
+                    }
+
+                    current = map.get(part);
+
+                    if (index === parts.length - 1) {
+                        current.value = value;
+                        current.children = null;  // remove children for leaf nodes
+                    }
+                });
+            });
+
+            return d3.hierarchy(root)
+                .sum(d => d.value)
+                .sort((a, b) => b.height - a.height || b.value - a.value);
+        }
+
+        function processDistritoData(csvData) {
+            const root = { name: "Costa Rica", children: [] };
+            const levels = { 'Costa Rica': root };
+
+            csvData.forEach(row => {
+                const path = row.ID.split('.');
+                const value = +row.POBL_2022;
+                let currentLevel = root;
+
+                for (let i = 0; i < path.length - 1; i++) {
+                    const part = path[i];
+                    const partId = path.slice(0, i + 1).join('.');
+
+                    if (!levels[partId]) {
+                        const newPart = { name: part, children: [] };
+                        levels[partId] = newPart;
+                        currentLevel.children.push(newPart);
+                    }
+                    currentLevel = levels[partId];
+                }
+
+                currentLevel.children.push({ name: path[path.length - 1], value: value });
+            });
+
+            return d3.hierarchy(root)
+                .sum(d => d.value)
+                .sort((a, b) => b.height - a.height || b.value - a.value);
+        }
+
+        async function loadAndProcessData(url, processor) {
             try {
                 const dataCSV = await d3.csv(url);
-                return processCSVData(dataCSV);
+                return processor(dataCSV);
             } catch (error) {
-                console.error("Error al cargar el CSV:", error);
+                console.error("Error loading the CSV:", error);
             }
         }
 
-        async function drawTreemap(url) {
-            const root = await loadAndProcessData(url);
-
+        async function drawTreemap(url, containerId, processor) {
+            const root = await loadAndProcessData(url, processor);
             treemap(root);
 
-            const svg = d3.select("body").append("svg")
+            const svg = d3.select(`#${containerId}`).append("svg")
                 .attr("width", width)
                 .attr("height", height)
                 .style("font-family", "sans-serif");
@@ -117,7 +195,9 @@
                 .text(d => `${d.data.name}\n${d.value}`);
         }
 
-        drawTreemap("https://raw.githubusercontent.com/unpluggedREVAN/Tarea_4_Visua/main/flare.json");
+        drawTreemap("https://raw.githubusercontent.com/unpluggedREVAN/Tarea_4_Visua/main/flare.json", "treemap1", processFlareData);
+        drawTreemap("https://raw.githubusercontent.com/unpluggedREVAN/Tarea_4_Visua/main/vue.json", "treemap2", processVueData);
+        drawTreemap("https://raw.githubusercontent.com/unpluggedREVAN/Tarea_4_Visua/main/distritos_cr.json", "treemap3", processDistritoData);
     </script>
 </body>
 </html>
