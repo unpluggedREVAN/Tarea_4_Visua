@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Treemap Squarify with D3.js</title>
-    <script src="https://d3js.org/d3.v6.min.js"></script>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
     <style>
         .node {
             border: solid 1px white;
@@ -29,10 +29,42 @@
             .paddingInner(1)
             .round(true);
 
-        d3.json("https://visualizacion-tec.netlify.app/flare.json").then(data => {
-            const root = d3.hierarchy(data)
-                .eachBefore(d => d.data.id = (d.parent ? d.parent.data.id + "." : "") + d.data.name)
-                .sum(d => d.size)
+        function replaceHeaders(csvData, oldHeader1, oldHeader2) {
+            const newData = csvData.map((row) => {
+                const newRow = { ...row };
+                newRow.id = newRow[oldHeader1];
+                newRow.value = +newRow[oldHeader2];
+                delete newRow[oldHeader1];
+                delete newRow[oldHeader2];
+                return newRow;
+            });
+            return newData;
+        }
+
+        async function loadAndProcessData(url) {
+            try {
+                const dataCSV = await d3.csv(url);
+                const originalHeaders = Object.keys(dataCSV[0]);
+
+                if (originalHeaders[0] !== "id" && originalHeaders[1] !== "value") {
+                    const updatedData = replaceHeaders(dataCSV, originalHeaders[0], originalHeaders[1]);
+                    return updatedData;
+                }
+
+                return dataCSV;
+            } catch (error) {
+                console.error("Error al cargar el CSV:", error);
+            }
+        }
+
+        async function drawTreemap(url) {
+            const data = await loadAndProcessData(url);
+
+            const root = d3.stratify()
+                .id(d => d.id)
+                .parentId(d => d.id.substring(0, d.id.lastIndexOf(".")))
+                (data)
+                .sum(d => d.value)
                 .sort((a, b) => b.height - a.height || b.value - a.value);
 
             treemap(root);
@@ -49,28 +81,30 @@
                 .attr("transform", d => `translate(${d.x0},${d.y0})`);
 
             node.append("rect")
-                .attr("id", d => d.data.id)
+                .attr("id", d => d.id)
                 .attr("width", d => d.x1 - d.x0)
                 .attr("height", d => d.y1 - d.y0)
-                .attr("fill", d => color(d.parent.data.id));
+                .attr("fill", d => color(d.parent.id));
 
             node.append("clipPath")
-                .attr("id", d => `clip-${d.data.id}`)
+                .attr("id", d => `clip-${d.id}`)
                 .append("use")
-                .attr("xlink:href", d => `#${d.data.id}`);
+                .attr("xlink:href", d => `#${d.id}`);
 
             node.append("text")
-                .attr("clip-path", d => `url(#clip-${d.data.id})`)
+                .attr("clip-path", d => `url(#clip-${d.id})`)
                 .selectAll("tspan")
-                .data(d => d.data.name.split(/(?=[A-Z][^A-Z])/g))
+                .data(d => d.data.id.split(/(?=[A-Z][^A-Z])/g))
                 .enter().append("tspan")
                 .attr("x", 3)
                 .attr("y", (d, i) => 13 + i * 10)
                 .text(d => d);
 
             node.append("title")
-                .text(d => `${d.data.id}\n${d.value}`);
-        });
+                .text(d => `${d.id}\n${d.value}`);
+        }
+
+        drawTreemap("https://raw.githubusercontent.com/unpluggedREVAN/Tarea_4_Visua/main/flare.json");
     </script>
 </body>
 </html>
