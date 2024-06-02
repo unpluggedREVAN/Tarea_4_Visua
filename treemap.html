@@ -56,16 +56,17 @@
                 let current = root;
 
                 parts.forEach((part, index) => {
-                    if (!map.has(part)) {
+                    const currentPath = parts.slice(0, index + 1).join('.');
+                    if (!map.has(currentPath)) {
                         const newNode = {
                             name: part,
                             children: []
                         };
                         current.children.push(newNode);
-                        map.set(part, newNode);
+                        map.set(currentPath, newNode);
                     }
 
-                    current = map.get(part);
+                    current = map.get(currentPath);
 
                     if (index === parts.length - 1) {
                         current.value = value;
@@ -86,6 +87,7 @@
             };
 
             const map = new Map();
+            map.set("root", root);
 
             csvData.forEach(row => {
                 const id = row.pathname;
@@ -95,16 +97,17 @@
                 let current = root;
 
                 parts.forEach((part, index) => {
-                    if (!map.has(part)) {
+                    const currentPath = parts.slice(0, index + 1).join('.');
+                    if (!map.has(currentPath)) {
                         const newNode = {
                             name: part,
                             children: []
                         };
                         current.children.push(newNode);
-                        map.set(part, newNode);
+                        map.set(currentPath, newNode);
                     }
 
-                    current = map.get(part);
+                    current = map.get(currentPath);
 
                     if (index === parts.length - 1) {
                         current.value = value;
@@ -158,6 +161,11 @@
 
         async function drawTreemap(url, containerId, processor) {
             const root = await loadAndProcessData(url, processor);
+            if (!root) {
+                console.error("No data loaded for", containerId);
+                return;
+            }
+
             treemap(root);
 
             const svg = d3.select(`#${containerId}`).append("svg")
