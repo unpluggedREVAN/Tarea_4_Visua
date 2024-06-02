@@ -3,42 +3,42 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Multiple Treemaps with D3.js</title>
+    <title>Radial Layout with D3.js</title>
     <script src="https://d3js.org/d3.v7.min.js"></script>
     <style>
         .node {
-            border: solid 1px white;
             font: 10px sans-serif;
-            line-height: 12px;
-            overflow: hidden;
-            position: absolute;
-            text-align: center;
         }
-        .treemap-container {
+        .link {
+            fill: none;
+            stroke: #555;
+            stroke-opacity: 0.4;
+            stroke-width: 1.5px;
+        }
+        .radial-container {
             margin: 20px;
             position: relative;
             width: 960px;
-            height: 570px;
+            height: 960px;
             border: 1px solid black;
         }
     </style>
 </head>
 <body>
-    <div id="treemap1" class="treemap-container"></div>
-    <div id="treemap2" class="treemap-container"></div>
-    <div id="treemap3" class="treemap-container"></div>
+    <div id="radial1" class="radial-container"></div>
+    <div id="radial2" class="radial-container"></div>
+    <div id="radial3" class="radial-container"></div>
 
     <script>
         const width = 960;
-        const height = 570;
+        const height = 960;
+        const radius = width / 2;
+
+        const tree = d3.tree()
+            .size([2 * Math.PI, radius - 100])
+            .separation((a, b) => (a.parent == b.parent ? 1 : 2) / a.depth);
 
         const color = d3.scaleOrdinal(d3.schemeCategory10);
-
-        const treemap = d3.treemap()
-            .tile(d3.treemapSquarify)
-            .size([width, height])
-            .paddingInner(1)
-            .round(true);
 
         function processFlareData(csvData) {
             const root = {
@@ -80,7 +80,7 @@
                 .sort((a, b) => b.height - a.height || b.value - a.value);
         }
 
-        function processVueDataSpecial(csvData) {
+        function processVueData(csvData) {
             const root = {
                 name: "root",
                 children: []
@@ -163,53 +163,58 @@
             }
         }
 
-        async function drawTreemap(url, containerId, processor) {
+        async function drawRadialLayout(url, containerId, processor) {
             const root = await loadAndProcessData(url, processor);
             if (!root) {
                 console.error("No data loaded for", containerId);
                 return;
             }
 
-            treemap(root);
+            tree(root);
 
             const svg = d3.select(`#${containerId}`).append("svg")
                 .attr("width", width)
                 .attr("height", height)
-                .style("font-family", "sans-serif");
+                .style("font-family", "sans-serif")
+                .append("g")
+                .attr("transform", `translate(${width / 2},${height / 2})`);
 
-            const node = svg.selectAll(".node")
-                .data(root.leaves())
+            const link = svg.append("g")
+                .selectAll(".link")
+                .data(root.links())
+                .enter().append("path")
+                .attr("class", "link")
+                .attr("d", d3.linkRadial()
+                    .angle(d => d.x)
+                    .radius(d => d.y));
+
+            const node = svg.append("g")
+                .selectAll(".node")
+                .data(root.descendants())
                 .enter().append("g")
                 .attr("class", "node")
-                .attr("transform", d => `translate(${d.x0},${d.y0})`);
+                .attr("transform", d => `
+                    rotate(${d.x * 180 / Math.PI - 90})
+                    translate(${d.y},0)
+                `);
 
-            node.append("rect")
-                .attr("id", d => d.data.name)
-                .attr("width", d => d.x1 - d.x0)
-                .attr("height", d => d.y1 - d.y0)
-                .attr("fill", d => color(d.parent.data.name));
-
-            node.append("clipPath")
-                .attr("id", d => `clip-${d.data.name}`)
-                .append("use")
-                .attr("xlink:href", d => `#${d.data.name}`);
+            node.append("circle")
+                .attr("r", 2.5)
+                .attr("fill", d => color(d.depth));
 
             node.append("text")
-                .attr("clip-path", d => `url(#clip-${d.data.name})`)
-                .selectAll("tspan")
-                .data(d => d.data.name.split(/(?=[A-Z][^A-Z])/g))
-                .enter().append("tspan")
-                .attr("x", 3)
-                .attr("y", (d, i) => 13 + i * 10)
-                .text(d => d);
-
-            node.append("title")
-                .text(d => `${d.data.name}\n${d.value}`);
+                .attr("dy", "0.31em")
+                .attr("x", d => d.x < Math.PI === !d.children ? 6 : -6)
+                .attr("text-anchor", d => d.x < Math.PI === !d.children ? "start" : "end")
+                .attr("transform", d => d.x >= Math.PI ? "rotate(180)" : null)
+                .text(d => d.data.name)
+                .clone(true).lower()
+                .attr("stroke", "white");
         }
 
-        drawTreemap("https://raw.githubusercontent.com/unpluggedREVAN/Tarea_4_Visua/main/flare.json", "treemap1", processFlareData);
-        drawTreemap("https://raw.githubusercontent.com/unpluggedREVAN/Tarea_4_Visua/main/vue.json", "treemap2", processVueDataSpecial);
-        drawTreemap("https://raw.githubusercontent.com/unpluggedREVAN/Tarea_4_Visua/main/distritos_cr.json", "treemap3", processDistritoData);
+        drawRadialLayout("https://raw.githubusercontent.com/unpluggedREVAN/Tarea_4_Visua/main/flare.json", "radial1", processFlareData);
+        drawRadialLayout("https://raw.githubusercontent.com/unpluggedREVAN/Tarea_4_Visua/main/vue.json", "radial2", processVueData);
+        drawRadialLayout("https://raw.githubusercontent.com/unpluggedREVAN/Tarea_4_Visua/main/distritos_cr.json", "radial3", processDistritoData);
     </script>
 </body>
 </html>

@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Multiple Treemaps with D3.js</title>
+    <title>Partition Layout with D3.js</title>
     <script src="https://d3js.org/d3.v7.min.js"></script>
     <style>
         .node {
@@ -11,10 +11,9 @@
             font: 10px sans-serif;
             line-height: 12px;
             overflow: hidden;
-            position: absolute;
-            text-align: center;
+            text-align: left;
         }
-        .treemap-container {
+        .partition-container {
             margin: 20px;
             position: relative;
             width: 960px;
@@ -24,9 +23,9 @@
     </style>
 </head>
 <body>
-    <div id="treemap1" class="treemap-container"></div>
-    <div id="treemap2" class="treemap-container"></div>
-    <div id="treemap3" class="treemap-container"></div>
+    <div id="partition1" class="partition-container"></div>
+    <div id="partition2" class="partition-container"></div>
+    <div id="partition3" class="partition-container"></div>
 
     <script>
         const width = 960;
@@ -34,10 +33,9 @@
 
         const color = d3.scaleOrdinal(d3.schemeCategory10);
 
-        const treemap = d3.treemap()
-            .tile(d3.treemapSquarify)
+        const partition = d3.partition()
             .size([width, height])
-            .paddingInner(1)
+            .padding(1)
             .round(true);
 
         function processFlareData(csvData) {
@@ -80,7 +78,7 @@
                 .sort((a, b) => b.height - a.height || b.value - a.value);
         }
 
-        function processVueDataSpecial(csvData) {
+        function processVueData(csvData) {
             const root = {
                 name: "root",
                 children: []
@@ -163,14 +161,14 @@
             }
         }
 
-        async function drawTreemap(url, containerId, processor) {
+        async function drawPartitionLayout(url, containerId, processor) {
             const root = await loadAndProcessData(url, processor);
             if (!root) {
                 console.error("No data loaded for", containerId);
                 return;
             }
 
-            treemap(root);
+            partition(root);
 
             const svg = d3.select(`#${containerId}`).append("svg")
                 .attr("width", width)
@@ -178,7 +176,7 @@
                 .style("font-family", "sans-serif");
 
             const node = svg.selectAll(".node")
-                .data(root.leaves())
+                .data(root.descendants())
                 .enter().append("g")
                 .attr("class", "node")
                 .attr("transform", d => `translate(${d.x0},${d.y0})`);
@@ -187,29 +185,20 @@
                 .attr("id", d => d.data.name)
                 .attr("width", d => d.x1 - d.x0)
                 .attr("height", d => d.y1 - d.y0)
-                .attr("fill", d => color(d.parent.data.name));
-
-            node.append("clipPath")
-                .attr("id", d => `clip-${d.data.name}`)
-                .append("use")
-                .attr("xlink:href", d => `#${d.data.name}`);
+                .attr("fill", d => color(d.depth));
 
             node.append("text")
-                .attr("clip-path", d => `url(#clip-${d.data.name})`)
-                .selectAll("tspan")
-                .data(d => d.data.name.split(/(?=[A-Z][^A-Z])/g))
-                .enter().append("tspan")
-                .attr("x", 3)
-                .attr("y", (d, i) => 13 + i * 10)
-                .text(d => d);
+                .attr("x", 4)
+                .attr("y", 13)
+                .text(d => d.data.name);
 
             node.append("title")
                 .text(d => `${d.data.name}\n${d.value}`);
         }
 
-        drawTreemap("https://raw.githubusercontent.com/unpluggedREVAN/Tarea_4_Visua/main/flare.json", "treemap1", processFlareData);
-        drawTreemap("https://raw.githubusercontent.com/unpluggedREVAN/Tarea_4_Visua/main/vue.json", "treemap2", processVueDataSpecial);
-        drawTreemap("https://raw.githubusercontent.com/unpluggedREVAN/Tarea_4_Visua/main/distritos_cr.json", "treemap3", processDistritoData);
+        drawPartitionLayout("https://raw.githubusercontent.com/unpluggedREVAN/Tarea_4_Visua/main/flare.json", "partition1", processFlareData);
+        drawPartitionLayout("https://raw.githubusercontent.com/unpluggedREVAN/Tarea_4_Visua/main/vue.json", "partition2", processVueData);
+        drawPartitionLayout("https://raw.githubusercontent.com/unpluggedREVAN/Tarea_4_Visua/main/distritos_cr.json", "partition3", processDistritoData);
     </script>
 </body>
 </html>
